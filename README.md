@@ -9,6 +9,10 @@ Please note that functionality and bug fixes may vary slightly between the F-Dro
 * **Stable Release:** Available now on [F-Droid](https://f-droid.org/packages/com.brahmadeo.supertonic.tts/)
 * **Stable Release:** Available on [Google Play Store](https://play.google.com/store/apps/details?id=com.brahmadeo.supertonic.tts)
 
+### Automated debug builds
+
+Every push to `main` builds a signed debug APK through [`.github/workflows/debug-apk.yml`](.github/workflows/debug-apk.yml). The debug package is `com.brahmadeo.supertonic.tts.debug`, so it can be installed alongside the release app. The APK is signed with the same release key secrets used by the release workflow, and its Android `versionCode` increases with the workflow run number so later debug builds update earlier ones. Download it from the workflow run's artifact named `Supertonic-debug-<versionCode>`.
+
 ---
 
 > **Note:** This repository currently tracks both versions of the application.

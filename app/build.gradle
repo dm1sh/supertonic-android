@@ -50,6 +50,14 @@ def isSplitApksEnabled() {
     return project.hasProperty('splitApks') && project.property('splitApks').toString().toBoolean()
 }
 
+// Debug builds use a separate application id so they can coexist with the
+// release/F-Droid package. CI supplies a monotonically increasing value from
+// the GitHub Actions run number; the fallback keeps local debug builds usable.
+def debugVersionCode = (project.findProperty('debugVersionCode') ?: '1000000').toString().toInteger()
+if (debugVersionCode < 1) {
+    throw new GradleException("debugVersionCode must be positive")
+}
+
 configurations {
     onnxRuntime
 }
@@ -152,6 +160,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Keep CI/debug installs separate from the release package while
+            // preserving the same signing identity for debug-to-debug updates.
+            applicationIdSuffix '.debug'
+            versionNameSuffix "-debug.${debugVersionCode}"
+        }
         release {
             minifyEnabled = true
             shrinkResources = true
@@ -186,12 +200,19 @@ android {
 androidComponents {
     onVariants(selector().all()) { variant ->
         variant.outputs.forEach { output ->
-            def abiFilter = output.filters.find { it.filterType.name() == 'ABI' }
-            if (abiFilter != null) {
-                def abi = abiFilter.identifier
-                def baseAbiCode = project.ext.abiCodes.get(abi)
-                if (baseAbiCode != null) {
-                    output.versionCode.set(android.defaultConfig.versionCode * 1000000 + baseAbiCode)
+            if (variant.buildType == 'debug') {
+                // Every debug output from one CI run gets the same version
+                // code. The next workflow run supplies a larger one, so an
+                // installed debug APK can always be upgraded in place.
+                output.versionCode.set(debugVersionCode)
+            } else {
+                def abiFilter = output.filters.find { it.filterType.name() == 'ABI' }
+                if (abiFilter != null) {
+                    def abi = abiFilter.identifier
+                    def baseAbiCode = project.ext.abiCodes.get(abi)
+                    if (baseAbiCode != null) {
+                        output.versionCode.set(android.defaultConfig.versionCode * 1000000 + baseAbiCode)
+                    }
                 }
             }
         }
