@@ -216,6 +216,42 @@ class TextNormalizerTest {
     }
 
     @Test
+    fun testRussianNumberNormalization() {
+        val normalizer = TextNormalizer()
+
+        assertEquals("ноль", normalizer.normalize("0", "ru"))
+        assertEquals("две тысячи двадцать четыре", normalizer.normalize("2024", "ru"))
+        assertEquals(
+            "сто двадцать три миллиона четыреста пятьдесят шесть тысяч семьсот восемьдесят девять",
+            normalizer.normalize("123456789", "ru")
+        )
+        assertEquals("минус двенадцать", normalizer.normalize("-12", "ru"))
+
+        // Russian decimal comma and compound numeric forms.
+        assertEquals("три целых четырнадцать сотых", normalizer.normalize("3,14", "ru"))
+        assertEquals("от десять до пятнадцать", normalizer.normalize("10–15", "ru"))
+        assertEquals("пять процентов", normalizer.normalize("5%", "ru"))
+        assertEquals("минус пять процентов", normalizer.normalize("−5%", "ru"))
+        assertEquals("пять градусов Цельсия", normalizer.normalize("5°C", "ru"))
+        assertEquals("минус пять градусов Цельсия", normalizer.normalize("−5°C", "ru"))
+        assertEquals("пять градусов", normalizer.normalize("5°", "ru"))
+
+        // Ordinal-looking forms are deliberately left for a future
+        // context-aware/morphological normalizer.
+        assertEquals("1-й", normalizer.normalize("1-й", "ru"))
+        assertEquals("2-я", normalizer.normalize("2-я", "ru"))
+    }
+
+    @Test
+    fun testRussianNormalizationPreservesRussianText() {
+        val normalizer = TextNormalizer()
+        assertEquals(
+            "В две тысячи двадцать четыре году выросло на пять процентов.",
+            normalizer.normalize("В 2024 году выросло на 5%.", "ru-RU")
+        )
+    }
+
+    @Test
     fun testEnglishNumberNormalization() {
         val normalizer = TextNormalizer()
         assertEquals("minus zero point three", normalizer.normalize("-0.3", "en"))

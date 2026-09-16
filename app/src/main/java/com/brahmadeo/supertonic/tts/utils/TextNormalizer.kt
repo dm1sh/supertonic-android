@@ -8,6 +8,10 @@ import com.brahmadeo.supertonic.tts.SupertonicTTS
  * Handles currencies, numbers, abbreviations, and more for natural TTS
  */
 class TextNormalizer {
+    // Russian has its own number-to-words pass. Keep it outside the companion
+    // object so each TextNormalizer instance owns one reusable converter.
+    private val russianNumbers = RussianNumberNormalizer()
+
     companion object {
         private val NAME_PREFIX_REGEX = Regex("\\b(Mc|Mac|Fitz)([A-Z])")
         
@@ -252,6 +256,14 @@ class TextNormalizer {
             LexiconManager.apply(cleanText)
         } else {
             cleanText
+        }
+
+        // Russian needs locale-specific number expansion. This must happen
+        // before the generic English-style path, which intentionally remains
+        // disabled for Russian so it does not emit English words such as
+        // "percent" or "million".
+        if (lowerLang.startsWith("ru")) {
+            return russianNumbers.normalize(processedText)
         }
 
         if (lowerLang.startsWith("hi")) {
