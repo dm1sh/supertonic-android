@@ -267,10 +267,10 @@ class LexiconActivity : ComponentActivity() {
 
         val prefs = getSharedPreferences("SupertonicPrefs", MODE_PRIVATE)
         val selectedLang = prefs.getString("selected_lang", "en") ?: "en"
-        val version = if (selectedLang == "en") "v1" else "v2"
+        val version = AssetManager.getAvailableModelVersionForLanguage(this, selectedLang)
 
         // Check if assets are ready
-        val isReady = if (version == "v1") AssetManager.isV1Ready(this) else AssetManager.isV2Ready(this)
+        val isReady = AssetManager.isVersionReady(this, version)
         if (!isReady) {
             Toast.makeText(this, "Assets not ready. Please download them on the main screen.", Toast.LENGTH_LONG).show()
             return

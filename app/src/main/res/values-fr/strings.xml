@@ -50,6 +50,17 @@
     <string name="v3_delete_message">Cela supprimera le modèle v3 et les styles de voix pour libérer de l\'espace (~380 Mo). Vous perdrez la prise en charge du japonais, de l\'arabe, de l\'allemand, du hindi, du russe et de 21 autres langues. Vous pourrez les télécharger à nouveau plus tard si nécessaire.</string>
     <string name="v3_deleted_msg">Modèle v3 supprimé</string>
 
+    <!-- Sélection des modèles au premier démarrage -->
+    <string name="model_setup_title">Choisir les modèles à télécharger</string>
+    <string name="model_setup_message">Sélectionnez au moins un modèle. Chaque modèle est autonome : vous pouvez télécharger uniquement ceux dont vous avez besoin et en ajouter un autre plus tard lors d’un changement de langue.</string>
+    <string name="model_setup_english_label">Modèle anglais uniquement</string>
+    <string name="model_setup_english_description">Synthèse en anglais uniquement (~255 Mo).</string>
+    <string name="model_setup_v2_label">Modèle multilingue v2</string>
+    <string name="model_setup_v2_description">Anglais, coréen, espagnol, français et portugais (~255 Mo).</string>
+    <string name="model_setup_v3_label">Modèle multilingue v3</string>
+    <string name="model_setup_v3_description">31 langues, dont l’anglais, le japonais, l’arabe, l’allemand, l’hindi, le russe et d’autres (~380 Mo).</string>
+    <string name="model_setup_continue">Continuer</string>
+
     <!-- Playback Activity -->
     <string name="now_playing_title">Lecture en cours</string>
     <string name="saving_audio">Enregistrement de l\'audio…</string>

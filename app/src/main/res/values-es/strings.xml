@@ -50,6 +50,17 @@
     <string name="v3_delete_message">Esto eliminará el modelo v3 y los estilos de voz para liberar espacio (~380 MB). Perderá el soporte para japonés, árabe, alemán, hindi, ruso y 21 otros idiomas. Puede descargarlo nuevamente más tarde si es necesario.</string>
     <string name="v3_deleted_msg">Modelo v3 eliminado</string>
 
+    <!-- Selección de modelos en el primer inicio -->
+    <string name="model_setup_title">Elige los modelos que deseas descargar</string>
+    <string name="model_setup_message">Selecciona al menos un modelo. Cada modelo es independiente, por lo que puedes descargar solo los que necesites y añadir otro más adelante al cambiar de idioma.</string>
+    <string name="model_setup_english_label">Modelo solo en inglés</string>
+    <string name="model_setup_english_description">Solo síntesis en inglés (~255 MB).</string>
+    <string name="model_setup_v2_label">Modelo multilingüe v2</string>
+    <string name="model_setup_v2_description">Inglés, coreano, español, francés y portugués (~255 MB).</string>
+    <string name="model_setup_v3_label">Modelo multilingüe v3</string>
+    <string name="model_setup_v3_description">31 idiomas, incluidos inglés, japonés, árabe, alemán, hindi, ruso y más (~380 MB).</string>
+    <string name="model_setup_continue">Continuar</string>
+
     <!-- Playback Activity -->
     <string name="now_playing_title">Reproduciendo ahora</string>
     <string name="saving_audio">Guardando audio…</string>

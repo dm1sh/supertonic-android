@@ -215,7 +215,7 @@ class PlaybackService : Service(), SupertonicTTS.ProgressListener, AudioManager.
         }
 
         val savedLang = getSharedPreferences("SupertonicPrefs", MODE_PRIVATE).getString("selected_lang", "en") ?: "en"
-        val modelVersion = com.brahmadeo.supertonic.tts.utils.AssetManager.getModelVersionForLanguage(savedLang)
+        val modelVersion = com.brahmadeo.supertonic.tts.utils.AssetManager.getAvailableModelVersionForLanguage(this, savedLang)
         val modelPath = File(filesDir, "$modelVersion/onnx").absolutePath
         val libPath = applicationInfo.nativeLibraryDir + "/libonnxruntime.so"
         SupertonicTTS.initialize(modelPath, libPath)
@@ -232,7 +232,7 @@ class PlaybackService : Service(), SupertonicTTS.ProgressListener, AudioManager.
             serviceScope.launch(Dispatchers.IO) {
                 SupertonicTTS.release()
                 val savedLang = getSharedPreferences("SupertonicPrefs", MODE_PRIVATE).getString("selected_lang", "en") ?: "en"
-                val modelVersion = com.brahmadeo.supertonic.tts.utils.AssetManager.getModelVersionForLanguage(savedLang)
+                val modelVersion = com.brahmadeo.supertonic.tts.utils.AssetManager.getAvailableModelVersionForLanguage(this@PlaybackService, savedLang)
                 val modelPath = File(filesDir, "$modelVersion/onnx").absolutePath
                 val libPath = applicationInfo.nativeLibraryDir + "/libonnxruntime.so"
                 SupertonicTTS.initialize(modelPath, libPath)

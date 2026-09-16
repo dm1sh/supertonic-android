@@ -50,6 +50,17 @@
     <string name="v3_delete_message">This will remove the v3 model and voice styles to free up space (~380MB). You will lose support for Japanese, Arabic, German, Hindi, Russian, and 21 other languages. You can download them again later if needed.</string>
     <string name="v3_deleted_msg">Model v3 deleted</string>
 
+    <!-- First-run model selection -->
+    <string name="model_setup_title">Choose models to download</string>
+    <string name="model_setup_message">Select at least one model. Each model is self-contained, so you can download only the models you need and add another later when switching languages.</string>
+    <string name="model_setup_english_label">English-only model</string>
+    <string name="model_setup_english_description">English synthesis only (~255 MB).</string>
+    <string name="model_setup_v2_label">Multilingual model v2</string>
+    <string name="model_setup_v2_description">English, Korean, Spanish, French, and Portuguese (~255 MB).</string>
+    <string name="model_setup_v3_label">Multilingual model v3</string>
+    <string name="model_setup_v3_description">31 languages including English, Japanese, Arabic, German, Hindi, Russian, and more (~380 MB).</string>
+    <string name="model_setup_continue">Continue</string>
+
     <!-- Playback Activity -->
     <string name="now_playing_title">Now Playing</string>
     <string name="saving_audio">Saving Audio…</string>

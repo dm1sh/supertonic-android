@@ -4,7 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
-import java.io.File
+import com.brahmadeo.supertonic.tts.utils.AssetManager
 import java.util.ArrayList
 
 /**
@@ -16,34 +16,40 @@ class CheckDataActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val prefs = getSharedPreferences("SupertonicPrefs", MODE_PRIVATE)
-        val savedLang = prefs.getString("selected_lang", "en") ?: "en"
-        val modelVersion = com.brahmadeo.supertonic.tts.utils.AssetManager.getModelVersionForLanguage(savedLang)
-
         val availableVoices = ArrayList<String>()
         val unavailableVoices = ArrayList<String>()
 
-        if (modelVersion == "v1") {
-            // English (v1) is bundled with the app and copied on first run
-            availableVoices.add("eng-USA")
-        } else {
-            // Check if multilingual models (v2) are present
-            val v2Dir = File(filesDir, "v2/onnx")
-            if (v2Dir.exists()) {
-                availableVoices.add("kor-KOR")
-                availableVoices.add("spa-ESP")
-                availableVoices.add("por-PRT")
-                availableVoices.add("fra-FRA")
-            } else {
-                // These could be downloaded via the app's UI
-                unavailableVoices.add("kor-KOR")
-                unavailableVoices.add("spa-ESP")
-                unavailableVoices.add("por-PRT")
-                unavailableVoices.add("fra-FRA")
+        val v1Voices = listOf("eng-USA")
+        val v2Voices = listOf(
+            "eng-USA", "kor-KOR", "spa-ESP", "por-PRT", "fra-FRA"
+        )
+        val v3Voices = listOf(
+            "eng-USA", "kor-KOR", "spa-ESP", "por-PRT", "fra-FRA", "jpn-JPN", "ara-ARA", "bul-BGR", "ces-CZE", "dan-DNK",
+            "deu-DEU", "ell-GRC", "est-EST", "fin-FIN", "hin-IND", "hrv-HRV",
+            "hun-HUN", "ind-IDN", "ita-ITA", "lit-LTU", "lav-LVA", "nld-NLD",
+            "pol-POL", "ron-ROU", "rus-RUS", "slk-SVK", "slv-SVN", "swe-SWE",
+            "tur-TUR", "ukr-UKR", "vie-VNM"
+        )
+
+        fun addAvailable(voices: List<String>) {
+            voices.forEach {
+                if (!availableVoices.contains(it)) availableVoices.add(it)
+                unavailableVoices.remove(it)
+            }
+        }
+        fun addUnavailable(voices: List<String>) {
+            voices.forEach {
+                if (!availableVoices.contains(it) && !unavailableVoices.contains(it)) {
+                    unavailableVoices.add(it)
+                }
             }
         }
 
-        val result = if (modelVersion == "v1" || availableVoices.isNotEmpty()) {
+        if (AssetManager.isV1Ready(this)) addAvailable(v1Voices) else addUnavailable(v1Voices)
+        if (AssetManager.isV2Ready(this)) addAvailable(v2Voices) else addUnavailable(v2Voices)
+        if (AssetManager.isV3Ready(this)) addAvailable(v3Voices) else addUnavailable(v3Voices)
+
+        val result = if (availableVoices.isNotEmpty()) {
             TextToSpeech.Engine.CHECK_VOICE_DATA_PASS
         } else {
             TextToSpeech.Engine.CHECK_VOICE_DATA_FAIL
@@ -52,7 +58,7 @@ class CheckDataActivity : Activity() {
         val returnIntent = Intent()
         returnIntent.putStringArrayListExtra(TextToSpeech.Engine.EXTRA_AVAILABLE_VOICES, availableVoices)
         returnIntent.putStringArrayListExtra(TextToSpeech.Engine.EXTRA_UNAVAILABLE_VOICES, unavailableVoices)
-        
+
         setResult(result, returnIntent)
         finish()
     }

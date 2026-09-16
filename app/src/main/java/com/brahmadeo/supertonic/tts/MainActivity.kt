@@ -30,6 +30,7 @@ import com.brahmadeo.supertonic.tts.service.IPlaybackService
 import com.brahmadeo.supertonic.tts.service.PlaybackService
 import com.brahmadeo.supertonic.tts.ui.DownloadScreen
 import com.brahmadeo.supertonic.tts.ui.MainScreen
+import com.brahmadeo.supertonic.tts.ui.ModelSelectionScreen
 import com.brahmadeo.supertonic.tts.ui.theme.SupertonicTheme
 import com.brahmadeo.supertonic.tts.utils.AssetManager
 import com.brahmadeo.supertonic.tts.utils.EbookManager
@@ -91,6 +92,7 @@ class MainActivity : ComponentActivity() {
     // Service
     private var playbackService: IPlaybackService? = null
     private var isBound = false
+    private var serviceBindRequested = false
 
     private val playbackListener = object : IPlaybackListener.Stub() {
         override fun onStateChanged(isPlaying: Boolean, hasContent: Boolean, isSynthesizing: Boolean) {
@@ -130,6 +132,7 @@ class MainActivity : ComponentActivity() {
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
             playbackService = IPlaybackService.Stub.asInterface(service)
+            serviceBindRequested = true
             isBound = true
             try {
                 playbackService?.setListener(playbackListener)
@@ -139,6 +142,7 @@ class MainActivity : ComponentActivity() {
 
         override fun onServiceDisconnected(arg0: ComponentName) {
             isBound = false
+            serviceBindRequested = false
             playbackService = null
         }
     }
@@ -217,45 +221,38 @@ class MainActivity : ComponentActivity() {
         checkNotificationPermission()
         migrateSavedAudioFiles()
 
-        val bindIntent = Intent(this, PlaybackService::class.java)
-        bindService(bindIntent, connection, BIND_AUTO_CREATE)
-
         ebookParser = EbookParser(this)
         LexiconManager.load(this)
         QueueManager.initialize(this)
 
-        // Initial setup based on saved language
-        val savedLang = getSharedPreferences("SupertonicPrefs", MODE_PRIVATE).getString("selected_lang", MainViewModel.DEFAULT_LANG) ?: MainViewModel.DEFAULT_LANG
-        currentModelVersion = AssetManager.getModelVersionForLanguage(savedLang)
-
-        // On FIRST LAUNCH, we check/download the required version.
-        // If English (default), we ensure V1 is ready.
-        // If they managed to switch language before assets were ready (unlikely), we check that version.
-        if (currentModelVersion == "v1") {
-            if (!AssetManager.isV1Ready(this)) {
-                startDownload("v1")
-            } else {
-                initializeEngine("v1")
-            }
-        } else if (currentModelVersion == "v2") {
-            if (!AssetManager.isV2Ready(this)) {
-                startDownload("v2")
-            } else {
-                initializeEngine("v2")
-            }
+        prepareInitialModelSetup()
+        if (viewModel.showModelSelection.value) {
+            // Do not start the playback service until the user has chosen at least
+            // one model. This keeps an English-only v1 path from being assumed when
+            // the user selects multilingual models only.
+        } else if (isInitialModelDownloadPending()) {
+            viewModel.showModelSelection.value = false
+            startInitialModelDownloads()
         } else {
-            if (!AssetManager.isV3Ready(this)) {
-                startDownload("v3")
-            } else {
-                initializeEngine("v3")
-            }
+            bindPlaybackService()
+            ensureCurrentModelReady()
         }
 
         handleIntent(intent)
 
         setContent {
             SupertonicTheme(voiceFile = viewModel.selectedVoiceFile.value) {
-                if (viewModel.isDownloading.value) {
+                if (viewModel.showModelSelection.value) {
+                    ModelSelectionScreen(
+                        englishSelected = viewModel.modelSelectionEnglish.value,
+                        v2Selected = viewModel.modelSelectionV2.value,
+                        v3Selected = viewModel.modelSelectionV3.value,
+                        onEnglishSelectedChange = { viewModel.modelSelectionEnglish.value = it },
+                        onV2SelectedChange = { viewModel.modelSelectionV2.value = it },
+                        onV3SelectedChange = { viewModel.modelSelectionV3.value = it },
+                        onContinue = { startInitialModelDownloads() }
+                    )
+                } else if (viewModel.isDownloading.value || viewModel.downloadError.value != null) {
                     DownloadScreen(
                         status = viewModel.downloadStatus.value,
                         progress = viewModel.downloadProgress.floatValue,
@@ -263,7 +260,7 @@ class MainActivity : ComponentActivity() {
                         downloadedBytes = viewModel.downloadedBytes.longValue,
                         totalBytes = viewModel.totalBytes.longValue,
                         error = viewModel.downloadError.value,
-                        onRetry = { startDownload(viewModel.downloadingVersion.value) }
+                        onRetry = { viewModel.retryDownload(this@MainActivity) }
                     )
                 } else {
                     if (viewModel.showQueueDialog.value) {
@@ -322,12 +319,7 @@ class MainActivity : ComponentActivity() {
                                     onClick = {
                                         AssetManager.deleteVersion(this@MainActivity, "v2")
                                         viewModel.showV2DeleteDialog.value = false
-                                        // Ensure we are on English/V1
-                                        viewModel.currentLang.value = "en"
-                                        saveStringPref("selected_lang", "en")
-                                        switchModel("v1")
-                                        val resetIntent = Intent(this@MainActivity, PlaybackService::class.java).apply { action = "RESET_ENGINE" }
-                                        startService(resetIntent)
+                                        switchToAvailableEnglishModel()
                                         Toast.makeText(this@MainActivity, getString(R.string.v2_deleted_msg), Toast.LENGTH_SHORT).show()
                                     },
                                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
@@ -375,12 +367,7 @@ class MainActivity : ComponentActivity() {
                                     onClick = {
                                         AssetManager.deleteVersion(this@MainActivity, "v3")
                                         viewModel.showV3DeleteDialog.value = false
-                                        // Ensure we are on English/V1
-                                        viewModel.currentLang.value = "en"
-                                        saveStringPref("selected_lang", "en")
-                                        switchModel("v1")
-                                        val resetIntent = Intent(this@MainActivity, PlaybackService::class.java).apply { action = "RESET_ENGINE" }
-                                        startService(resetIntent)
+                                        switchToAvailableEnglishModel()
                                         Toast.makeText(this@MainActivity, getString(R.string.v3_deleted_msg), Toast.LENGTH_SHORT).show()
                                     },
                                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
@@ -417,7 +404,7 @@ class MainActivity : ComponentActivity() {
                         languages = localizedLanguages,
                         currentLangCode = viewModel.currentLang.value,
                         onLangChange = { lang ->
-                            val targetVersion = AssetManager.getModelVersionForLanguage(lang)
+                            val targetVersion = AssetManager.getAvailableModelVersionForLanguage(this@MainActivity, lang)
                             if (targetVersion == "v1") {
                                 viewModel.currentLang.value = lang
                                 saveStringPref("selected_lang", lang)
@@ -610,6 +597,115 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun prepareInitialModelSetup() {
+        val prefs = getSharedPreferences("SupertonicPrefs", MODE_PRIVATE)
+        var setupComplete = prefs.getBoolean("model_setup_complete", false)
+        val setupStarted = prefs.getBoolean("model_setup_started", false)
+        // The previous implementation grouped v2 and v3 under this key. Read it
+        // once so an interrupted/updated installation resumes both bundles.
+        val legacyMultilingualSelection = prefs.getBoolean("model_setup_multilingual", false)
+
+        // Existing installations already have a model choice by virtue of having
+        // downloaded a model. Do not interrupt those users with the new chooser.
+        if (!setupComplete && !setupStarted && AssetManager.isAnyVersionReady(this)) {
+            prefs.edit {
+                putBoolean("model_setup_complete", true)
+                putBoolean("model_setup_english", AssetManager.isV1Ready(this@MainActivity))
+                putBoolean("model_setup_v2", AssetManager.isV2Ready(this@MainActivity))
+                putBoolean("model_setup_v3", AssetManager.isV3Ready(this@MainActivity))
+                remove("model_setup_multilingual")
+            }
+            setupComplete = true
+        }
+
+        viewModel.modelSelectionEnglish.value = prefs.getBoolean("model_setup_english", true)
+        viewModel.modelSelectionV2.value = prefs.getBoolean("model_setup_v2", legacyMultilingualSelection)
+        viewModel.modelSelectionV3.value = prefs.getBoolean("model_setup_v3", legacyMultilingualSelection)
+        if (!setupComplete && !setupStarted &&
+            !viewModel.modelSelectionEnglish.value &&
+            !viewModel.modelSelectionV2.value &&
+            !viewModel.modelSelectionV3.value
+        ) {
+            viewModel.modelSelectionEnglish.value = true
+        }
+        viewModel.showModelSelection.value = !setupComplete && !setupStarted
+    }
+
+    private fun isInitialModelDownloadPending(): Boolean {
+        val prefs = getSharedPreferences("SupertonicPrefs", MODE_PRIVATE)
+        return prefs.getBoolean("model_setup_started", false) &&
+            !prefs.getBoolean("model_setup_complete", false)
+    }
+
+    private fun startInitialModelDownloads() {
+        val includeEnglish = viewModel.modelSelectionEnglish.value
+        val includeV2 = viewModel.modelSelectionV2.value
+        val includeV3 = viewModel.modelSelectionV3.value
+        if (!includeEnglish && !includeV2 && !includeV3) return
+
+        getSharedPreferences("SupertonicPrefs", MODE_PRIVATE).edit {
+            putBoolean("model_setup_started", true)
+            putBoolean("model_setup_complete", false)
+            putBoolean("model_setup_english", includeEnglish)
+            putBoolean("model_setup_v2", includeV2)
+            putBoolean("model_setup_v3", includeV3)
+            remove("model_setup_multilingual")
+        }
+        viewModel.showModelSelection.value = false
+
+        val versions = AssetManager.getInitialDownloadVersions(includeEnglish, includeV2, includeV3)
+        viewModel.startDownloads(this, versions) {
+            getSharedPreferences("SupertonicPrefs", MODE_PRIVATE).edit {
+                putBoolean("model_setup_started", false)
+                putBoolean("model_setup_complete", true)
+            }
+            bindPlaybackService()
+            ensureCurrentModelReady(restrictToInitialSelection = true)
+        }
+    }
+
+    private fun bindPlaybackService() {
+        if (serviceBindRequested || isBound) return
+        serviceBindRequested = true
+        val bindIntent = Intent(this, PlaybackService::class.java)
+        if (!bindService(bindIntent, connection, BIND_AUTO_CREATE)) {
+            serviceBindRequested = false
+        }
+    }
+
+    private fun ensureCurrentModelReady(restrictToInitialSelection: Boolean = false) {
+        val prefs = getSharedPreferences("SupertonicPrefs", MODE_PRIVATE)
+        val savedLang = prefs.getString("selected_lang", MainViewModel.DEFAULT_LANG)
+            ?: MainViewModel.DEFAULT_LANG
+        currentModelVersion = AssetManager.getAvailableModelVersionForLanguage(this, savedLang)
+        if (AssetManager.isVersionReady(this, currentModelVersion)) {
+            initializeEngine(currentModelVersion)
+            return
+        }
+
+        if (restrictToInitialSelection) {
+            val selectedVersions = AssetManager.getInitialDownloadVersions(
+                includeEnglishOnly = prefs.getBoolean("model_setup_english", false),
+                includeV2 = prefs.getBoolean("model_setup_v2", false),
+                includeV3 = prefs.getBoolean("model_setup_v3", false)
+            )
+            val fallbackVersion = selectedVersions.firstOrNull {
+                AssetManager.isVersionReady(this, it)
+            }
+            if (fallbackVersion != null) {
+                // The saved language may come from an older installation. Do not
+                // silently download an unselected model during initial setup.
+                viewModel.currentLang.value = MainViewModel.DEFAULT_LANG
+                saveStringPref("selected_lang", MainViewModel.DEFAULT_LANG)
+                currentModelVersion = fallbackVersion
+                initializeEngine(fallbackVersion)
+                return
+            }
+        }
+
+        startDownload(currentModelVersion)
+    }
+
     private fun getLocalizedResource(context: Context, lang: String, resId: Int): String {
         val locale = java.util.Locale.forLanguageTag(lang)
         val config = android.content.res.Configuration(context.resources.configuration)
@@ -622,6 +718,15 @@ class MainActivity : ComponentActivity() {
         getSharedPreferences("SupertonicPrefs", MODE_PRIVATE).edit(commit = true) {
             putString(key, value)
         }
+    }
+
+    private fun switchToAvailableEnglishModel() {
+        viewModel.currentLang.value = "en"
+        saveStringPref("selected_lang", "en")
+        val version = AssetManager.getAvailableModelVersionForLanguage(this, "en")
+        switchModel(version)
+        val resetIntent = Intent(this, PlaybackService::class.java).apply { action = "RESET_ENGINE" }
+        startService(resetIntent)
     }
 
     private fun startDownload(version: String) {

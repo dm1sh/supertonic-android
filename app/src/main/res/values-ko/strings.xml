@@ -50,6 +50,17 @@
     <string name="v3_delete_message">v3 모델과 음성 스타일이 삭제되어 공간(~380MB)을 확보합니다. 일본어, 아랍어, 독일어, 힌디어, 러시아어 및 21개의 다른 언어 지원을 잃게 됩니다. 나중에 필요할 때 다시 다운로드할 수 있습니다.</string>
     <string name="v3_deleted_msg">v3 모델이 삭제되었습니다.</string>
 
+    <!-- 최초 실행 모델 선택 -->
+    <string name="model_setup_title">다운로드할 모델 선택</string>
+    <string name="model_setup_message">하나 이상의 모델을 선택하세요. 각 모델은 독립적으로 실행되므로 필요한 모델만 다운로드하고 언어를 바꿀 때 나중에 다른 모델을 추가할 수 있습니다.</string>
+    <string name="model_setup_english_label">영어 전용 모델</string>
+    <string name="model_setup_english_description">영어 음성 합성만 지원합니다(약 255MB).</string>
+    <string name="model_setup_v2_label">다국어 모델 v2</string>
+    <string name="model_setup_v2_description">영어, 한국어, 스페인어, 프랑스어, 포르투갈어(약 255MB).</string>
+    <string name="model_setup_v3_label">다국어 모델 v3</string>
+    <string name="model_setup_v3_description">영어, 일본어, 아랍어, 독일어, 힌디어, 러시아어 등을 포함한 31개 언어(약 380MB).</string>
+    <string name="model_setup_continue">계속</string>
+
     <!-- Playback Activity -->
     <string name="now_playing_title">현재 재생 중</string>
     <string name="saving_audio">오디오 저장 중…</string>

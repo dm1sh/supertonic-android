@@ -12,13 +12,57 @@ import java.net.URI
 import kotlin.time.Duration.Companion.milliseconds
 
 object AssetManager {
+    const val ENGLISH_MODEL_VERSION = "v1"
+
     fun getModelVersionForLanguage(lang: String): String {
         val cleanLang = lang.lowercase().substringBefore("-").substringBefore("_")
         return when (cleanLang) {
-            "en" -> "v1"
+            "en" -> ENGLISH_MODEL_VERSION
             "fr", "pt", "es", "ko" -> "v2"
             else -> "v3"
         }
+    }
+
+    /**
+     * Returns the model versions selected during first-run setup. Each bundle is
+     * independent, so users can choose v1, v2, v3, or any combination of them.
+     * Neither multilingual runtime reads files from v1.
+     */
+    fun getInitialDownloadVersions(
+        includeEnglishOnly: Boolean,
+        includeV2: Boolean,
+        includeV3: Boolean
+    ): List<String> {
+        val versions = mutableListOf<String>()
+        if (includeEnglishOnly) versions += ENGLISH_MODEL_VERSION
+        if (includeV2) versions += "v2"
+        if (includeV3) versions += "v3"
+        return versions
+    }
+
+    /**
+     * Selects the preferred model when it is present, while allowing the
+     * multilingual bundles to stand alone. This is important when English-only
+     * v1 was not selected: v3 (or v2 as a last multilingual fallback) also
+     * supports English.
+     */
+    fun getAvailableModelVersionForLanguage(context: Context, lang: String): String {
+        val preferred = getModelVersionForLanguage(lang)
+        if (isVersionReady(context, preferred)) return preferred
+
+        return when (preferred) {
+            "v1" -> when {
+                isV3Ready(context) -> "v3"
+                isV2Ready(context) -> "v2"
+                else -> preferred
+            }
+            "v2" -> if (isV3Ready(context)) "v3" else preferred
+            else -> preferred
+        }
+    }
+
+    fun isAnyVersionReady(context: Context): Boolean {
+        return isV1Ready(context) || isV2Ready(context) || isV3Ready(context)
     }
 
     private const val TAG = "AssetManager"
@@ -31,6 +75,15 @@ object AssetManager {
     private const val BUFFER_SIZE = 65_536
 
 
+    /*
+     * The three Hugging Face repositories repeat these relative filenames, but
+     * they are independent files in independent model bundles. Rust loads all
+     * four ONNX sessions, tts.json, and unicode_indexer.json from the selected
+     * version's onnx directory, and voice styles from that same version. The
+     * repositories' root metadata (config.json, README, and tts.yml) is not read
+     * by the runtime. Keep the complete manifest for every version so v2/v3
+     * never depend on v1.
+     */
     private val V1_FILES = listOf(
         "onnx/duration_predictor.onnx",
         "onnx/text_encoder.onnx",
@@ -55,7 +108,17 @@ object AssetManager {
         "voice_styles/F1.json", "voice_styles/F2.json", "voice_styles/F3.json", "voice_styles/F4.json", "voice_styles/F5.json"
     )
 
-    private val V3_FILES = V2_FILES
+    // V3 is a separate repository, even though its relative filenames match V2.
+    private val V3_FILES = listOf(
+        "onnx/duration_predictor.onnx",
+        "onnx/text_encoder.onnx",
+        "onnx/vector_estimator.onnx",
+        "onnx/vocoder.onnx",
+        "onnx/tts.json",
+        "onnx/unicode_indexer.json",
+        "voice_styles/M1.json", "voice_styles/M2.json", "voice_styles/M3.json", "voice_styles/M4.json", "voice_styles/M5.json",
+        "voice_styles/F1.json", "voice_styles/F2.json", "voice_styles/F3.json", "voice_styles/F4.json", "voice_styles/F5.json"
+    )
 
     fun isV1Ready(context: Context): Boolean = checkReady(context, "v1", V1_FILES)
     fun isV2Ready(context: Context): Boolean = checkReady(context, "v2", V2_FILES)

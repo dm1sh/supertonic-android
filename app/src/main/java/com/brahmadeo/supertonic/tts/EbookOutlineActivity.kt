@@ -146,7 +146,7 @@ class EbookOutlineActivity : ComponentActivity() {
         val steps = prefs.getInt("diffusion_steps", 5)
         val lang = prefs.getString("selected_lang", "en") ?: "en"
 
-        val modelVersion = com.brahmadeo.supertonic.tts.utils.AssetManager.getModelVersionForLanguage(lang)
+        val modelVersion = com.brahmadeo.supertonic.tts.utils.AssetManager.getAvailableModelVersionForLanguage(this, lang)
         var stylePath = File(filesDir, "$modelVersion/voice_styles/$voiceFile").absolutePath
         if (isMixing) {
             val stylePath2 = File(filesDir, "$modelVersion/voice_styles/$voiceFile2").absolutePath

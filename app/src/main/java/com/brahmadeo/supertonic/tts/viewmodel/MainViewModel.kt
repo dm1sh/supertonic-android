@@ -18,6 +18,12 @@ class MainViewModel : ViewModel() {
     var isSynthesizing = mutableStateOf(false)
     var canResume = mutableStateOf(false)
 
+    // First-run model selection
+    var showModelSelection = mutableStateOf(false)
+    var modelSelectionEnglish = mutableStateOf(true)
+    var modelSelectionV2 = mutableStateOf(false)
+    var modelSelectionV3 = mutableStateOf(false)
+
     // Settings State
     var currentLang = mutableStateOf(DEFAULT_LANG)
     var selectedVoiceFile = mutableStateOf(DEFAULT_VOICE)
@@ -55,12 +61,61 @@ class MainViewModel : ViewModel() {
     // Data
     val voiceFiles = mutableStateMapOf<String, String>()
 
+    /** Start a single model download, retaining the existing API for on-demand switching. */
     fun startDownload(context: Context, version: String, onComplete: (String) -> Unit) {
+        startDownloads(context, listOf(version)) {
+            onComplete(version)
+        }
+    }
+
+    /**
+     * Download a set of model versions in order. A failed version remains at the
+     * head of the queue so retryDownload() resumes the same .part files and then
+     * continues with the remaining versions.
+     */
+    fun startDownloads(context: Context, versions: List<String>, onComplete: () -> Unit) {
         if (isDownloading.value) return
 
-        isDownloading.value = true
-        downloadingVersion.value = version
+        pendingDownloads.clear()
+        pendingDownloads.addAll(
+            versions.distinct().filterNot { AssetManager.isVersionReady(context, it) }
+        )
+        onDownloadsComplete = onComplete
         downloadError.value = null
+
+        if (pendingDownloads.isEmpty()) {
+            onDownloadsComplete = null
+            onComplete()
+            return
+        }
+
+        isDownloading.value = true
+        downloadNext(context)
+    }
+
+    /** Retry the current queued version without discarding the rest of the queue. */
+    fun retryDownload(context: Context) {
+        if (isDownloading.value || pendingDownloads.isEmpty()) return
+        downloadError.value = null
+        isDownloading.value = true
+        downloadNext(context)
+    }
+
+    private val pendingDownloads = mutableListOf<String>()
+    private var onDownloadsComplete: (() -> Unit)? = null
+
+    private fun downloadNext(context: Context) {
+        val nextVersion = pendingDownloads.firstOrNull { !AssetManager.isVersionReady(context, it) }
+        if (nextVersion == null) {
+            pendingDownloads.clear()
+            isDownloading.value = false
+            val completion = onDownloadsComplete
+            onDownloadsComplete = null
+            completion?.invoke()
+            return
+        }
+
+        downloadingVersion.value = nextVersion
         downloadProgress.floatValue = 0f
         downloadStatus.value = "Initializing..."
         downloadedBytes.longValue = 0L
@@ -74,17 +129,18 @@ class MainViewModel : ViewModel() {
                     downloadedBytes.longValue = downloaded
                     totalBytes.longValue = total
                 }
-                
-                when (version) {
+
+                when (nextVersion) {
                     "v1" -> AssetManager.downloadV1(context, onProgress)
                     "v2" -> AssetManager.downloadV2(context, onProgress)
-                    else -> AssetManager.downloadV3(context, onProgress)
+                    "v3" -> AssetManager.downloadV3(context, onProgress)
+                    else -> throw IllegalArgumentException("Unknown model version: $nextVersion")
                 }
-                
-                isDownloading.value = false
-                onComplete(version)
+
+                pendingDownloads.remove(nextVersion)
+                downloadNext(context)
             } catch (e: Exception) {
-                isDownloading.value = false // Allow UI to show error and retry
+                isDownloading.value = false // Allow UI to show the error and retry.
                 downloadError.value = e.message ?: "Unknown error"
             }
         }
