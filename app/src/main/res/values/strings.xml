@@ -114,6 +114,24 @@
     <string name="import_no_changes_with_skipped_fmt">All matching terms are already up to date. %1$d entries skipped (missing required fields).</string>
     <string name="export_chooser_title">Export Lexicon</string>
 
+    <!-- Bulk accent dictionary -->
+    <string name="accent_dict_import_action">Import accent dictionary JSON</string>
+    <string name="accent_dict_clear_action">Clear accent dictionary</string>
+    <string name="accent_dict_status_fmt">Accent dictionary active: %1$d entries</string>
+    <string name="accent_dict_importing">Importing accent dictionary…</string>
+    <string name="accent_dict_import_title">Accent Dictionary Imported</string>
+    <string name="accent_dict_import_msg_fmt">%1$d entries loaded and will be applied automatically during synthesis.</string>
+    <string name="accent_dict_import_failed">Accent dictionary import failed</string>
+    <string name="accent_dict_empty">No valid entries found in the file.</string>
+    <string name="accent_dict_import_oom">Out of memory while parsing this dictionary. Try a smaller JSON file.</string>
+    <string name="accent_dict_import_parse_error">The file is not a valid flat JSON object of word-to-pronunciation entries.</string>
+    <string name="accent_dict_import_too_large_fmt">The selected file exceeds the %1$d MB safety limit.</string>
+    <string name="accent_dict_import_io_error">The dictionary could not be read from the selected file.</string>
+    <string name="accent_dict_import_unknown_error">The dictionary could not be imported (error %1$d).</string>
+    <string name="accent_dict_clear_title">Clear accent dictionary?</string>
+    <string name="accent_dict_clear_msg">All imported pronunciation entries will be removed. Your hand-authored rules will be kept.</string>
+    <string name="accent_dict_cleared">Accent dictionary cleared.</string>
+
     <!-- Menus -->
     <string name="action_reset">Reset</string>
     <string name="action_open_ebook">Open Ebook (EPUB/PDF)</string>

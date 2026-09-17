@@ -251,19 +251,22 @@ class TextNormalizer {
         // Remove soft hyphens (\u00AD) globally
         val cleanText = text.replace("\u00AD", "")
         
-        // 1. Lexicon applies to all languages except Korean
+        // The hand-authored lexicon has priority. Apply the bulk dictionary
+        // afterwards so imported stress marks cannot undo an explicit user
+        // replacement. Russian number expansion comes before the bulk lookup
+        // so generated number words can receive stress marks too.
         val processedText = if (lowerLang != "ko") {
-            LexiconManager.apply(cleanText)
+            var textAfterLexicon = LexiconManager.apply(cleanText)
+            if (lowerLang.startsWith("ru")) {
+                textAfterLexicon = russianNumbers.normalize(textAfterLexicon)
+            }
+            AccentDictionaryManager.apply(textAfterLexicon, lowerLang)
         } else {
             cleanText
         }
 
-        // Russian needs locale-specific number expansion. This must happen
-        // before the generic English-style path, which intentionally remains
-        // disabled for Russian so it does not emit English words such as
-        // "percent" or "million".
         if (lowerLang.startsWith("ru")) {
-            return russianNumbers.normalize(processedText)
+            return processedText
         }
 
         if (lowerLang.startsWith("hi")) {

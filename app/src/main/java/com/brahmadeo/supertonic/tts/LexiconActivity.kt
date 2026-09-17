@@ -17,15 +17,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope
 import com.brahmadeo.supertonic.tts.service.IPlaybackService
 import com.brahmadeo.supertonic.tts.service.PlaybackService
 import com.brahmadeo.supertonic.tts.ui.LexiconEditDialog
 import com.brahmadeo.supertonic.tts.ui.LexiconScreen
 import com.brahmadeo.supertonic.tts.ui.theme.SupertonicTheme
+import com.brahmadeo.supertonic.tts.utils.AccentDictionaryManager
 import com.brahmadeo.supertonic.tts.utils.AssetManager
 import com.brahmadeo.supertonic.tts.utils.LexiconItem
 import com.brahmadeo.supertonic.tts.utils.LexiconManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -35,6 +40,8 @@ import java.io.InputStreamReader
 class LexiconActivity : ComponentActivity() {
 
     private val rulesState = mutableStateOf<List<LexiconItem>>(emptyList())
+    private val accentDictSizeState = mutableStateOf(0)
+    private val accentDictImportingState = mutableStateOf(false)
     private var playbackService: IPlaybackService? = null
     private var isBound = false
 
@@ -54,12 +61,17 @@ class LexiconActivity : ComponentActivity() {
         uri?.let { performImport(it) }
     }
 
+    private val importAccentDictLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let { performImportAccentDict(it) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        // Load initial rules
+        // Load initial rules and the lightweight persisted dictionary status.
         refreshRules()
+        refreshAccentDictionaryStatus()
 
         val intent = Intent(this, PlaybackService::class.java)
         bindService(intent, connection, BIND_AUTO_CREATE)
@@ -85,9 +97,17 @@ class LexiconActivity : ComponentActivity() {
 
                 LexiconScreen(
                     rules = rulesState.value,
+                    accentDictSize = accentDictSizeState.value,
+                    accentDictImporting = accentDictImportingState.value,
                     onBackClick = { finish() },
                     onImportClick = { importLauncher.launch("application/json") },
                     onExportClick = { performExport() },
+                    onImportAccentDictClick = {
+                        if (!accentDictImportingState.value) {
+                            importAccentDictLauncher.launch("application/json")
+                        }
+                    },
+                    onClearAccentDictClick = { clearAccentDictionary() },
                     onAddClick = {
                         editingItem = null
                         showEditDialog = true
@@ -106,6 +126,11 @@ class LexiconActivity : ComponentActivity() {
 
     private fun refreshRules() {
         rulesState.value = LexiconManager.load(this)
+    }
+
+    private fun refreshAccentDictionaryStatus() {
+        val metadata = AccentDictionaryManager.getMetadata(this)
+        accentDictSizeState.value = metadata?.entries ?: AccentDictionaryManager.size()
     }
 
     private fun saveRule(existingItem: LexiconItem?, term: String, replacement: String, ignoreCase: Boolean, isRegex: Boolean) {
@@ -257,6 +282,70 @@ class LexiconActivity : ComponentActivity() {
             e.printStackTrace()
             Toast.makeText(this, getString(R.string.import_error), Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun performImportAccentDict(uri: Uri) {
+        if (accentDictImportingState.value) return
+        accentDictImportingState.value = true
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = AccentDictionaryManager.importFromUri(this@LexiconActivity, uri)
+            withContext(Dispatchers.Main) {
+                accentDictImportingState.value = false
+                refreshAccentDictionaryStatus()
+                when {
+                    result > 0 -> {
+                        MaterialAlertDialogBuilder(this@LexiconActivity)
+                            .setTitle(getString(R.string.accent_dict_import_title))
+                            .setMessage(getString(R.string.accent_dict_import_msg_fmt, result))
+                            .setPositiveButton(getString(R.string.ok), null)
+                            .show()
+                    }
+                    result == 0 -> {
+                        Toast.makeText(
+                            this@LexiconActivity,
+                            getString(R.string.accent_dict_empty),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    else -> {
+                        MaterialAlertDialogBuilder(this@LexiconActivity)
+                            .setTitle(getString(R.string.accent_dict_import_failed))
+                            .setMessage(accentDictionaryImportErrorMessage(result))
+                            .setPositiveButton(getString(R.string.ok), null)
+                            .show()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun accentDictionaryImportErrorMessage(code: Int): String = when (code) {
+        AccentDictionaryManager.ERR_OOM -> getString(R.string.accent_dict_import_oom)
+        AccentDictionaryManager.ERR_PARSE -> getString(R.string.accent_dict_import_parse_error)
+        AccentDictionaryManager.ERR_TOO_LARGE -> getString(
+            R.string.accent_dict_import_too_large_fmt,
+            AccentDictionaryManager.MAX_FILE_SIZE_MB
+        )
+        AccentDictionaryManager.ERR_IO -> getString(R.string.accent_dict_import_io_error)
+        else -> getString(R.string.accent_dict_import_unknown_error, code)
+    }
+
+    private fun clearAccentDictionary() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.accent_dict_clear_title))
+            .setMessage(getString(R.string.accent_dict_clear_msg))
+            .setNegativeButton(getString(R.string.cancel), null)
+            .setPositiveButton(getString(R.string.delete)) { _, _ ->
+                AccentDictionaryManager.clear(this)
+                refreshAccentDictionaryStatus()
+                Toast.makeText(
+                    this,
+                    getString(R.string.accent_dict_cleared),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            .show()
     }
 
     private fun testPronunciation(text: String) {

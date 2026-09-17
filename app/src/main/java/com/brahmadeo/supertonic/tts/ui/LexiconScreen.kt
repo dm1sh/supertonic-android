@@ -15,15 +15,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.brahmadeo.supertonic.tts.R
 import com.brahmadeo.supertonic.tts.utils.LexiconItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LexiconScreen(
     rules: List<LexiconItem>,
+    accentDictSize: Int,
+    accentDictImporting: Boolean,
     onBackClick: () -> Unit,
     onImportClick: () -> Unit,
     onExportClick: () -> Unit,
+    onImportAccentDictClick: () -> Unit,
+    onClearAccentDictClick: () -> Unit,
     onAddClick: () -> Unit,
     onEditClick: (LexiconItem) -> Unit,
     onDeleteClick: (LexiconItem) -> Unit
@@ -62,6 +68,30 @@ fun LexiconScreen(
                                 onExportClick()
                             }
                         )
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.accent_dict_import_action)) },
+                            enabled = !accentDictImporting,
+                            onClick = {
+                                showMenu = false
+                                onImportAccentDictClick()
+                            }
+                        )
+                        if (accentDictSize > 0) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(R.string.accent_dict_clear_action),
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                },
+                                enabled = !accentDictImporting,
+                                onClick = {
+                                    showMenu = false
+                                    onClearAccentDictClick()
+                                }
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text("Import Help") },
                             onClick = {
@@ -85,34 +115,66 @@ fun LexiconScreen(
             )
         }
     ) { paddingValues ->
-        if (rules.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            if (accentDictImporting) {
                 Text(
-                    text = "No custom rules yet.\nAdd terms to fix pronunciations.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    text = stringResource(R.string.accent_dict_importing),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.bodyMedium
                 )
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(bottom = 88.dp, top = 16.dp, start = 16.dp, end = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(rules) { rule ->
-                    LexiconItemRow(
-                        item = rule,
-                        onEdit = { onEditClick(rule) },
-                        onDelete = { onDeleteClick(rule) }
+
+            if (accentDictSize > 0) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text(
+                        text = stringResource(R.string.accent_dict_status_fmt, accentDictSize),
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
+                }
+            }
+
+            if (rules.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No custom rules yet.\nAdd terms to fix pronunciations.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(bottom = 88.dp, top = 16.dp, start = 16.dp, end = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(rules) { rule ->
+                        LexiconItemRow(
+                            item = rule,
+                            onEdit = { onEditClick(rule) },
+                            onDelete = { onDeleteClick(rule) }
+                        )
+                    }
                 }
             }
         }

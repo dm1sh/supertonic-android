@@ -44,7 +44,8 @@ class SupertonicTextToSpeechService : TextToSpeechService() {
         super.onCreate()
         Log.i("SupertonicTTS", "Service created")
         com.brahmadeo.supertonic.tts.utils.LexiconManager.load(this)
-        
+        com.brahmadeo.supertonic.tts.utils.AccentDictionaryManager.load(this)
+
         initJob = serviceScope.launch(Dispatchers.IO) {
             copyAssets()
             val prefs = attributionContext.getSharedPreferences("SupertonicPrefs", MODE_PRIVATE)
