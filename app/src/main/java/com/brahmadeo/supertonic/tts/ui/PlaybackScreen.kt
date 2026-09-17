@@ -16,6 +16,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Snooze
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -42,6 +44,8 @@ fun PlaybackScreen(
     onBackClick: () -> Unit,
     onHomeClick: () -> Unit,
     onItemClick: (Int) -> Unit,
+    onPreviousChunkClick: () -> Unit,
+    onNextChunkClick: () -> Unit,
     onPlayPauseClick: () -> Unit,
     onStopClick: () -> Unit,
     onExportClick: () -> Unit,
@@ -52,7 +56,7 @@ fun PlaybackScreen(
     val density = androidx.compose.ui.platform.LocalDensity.current
 
     val bottomPadding by animateDpAsState(
-        targetValue = if (isServiceActive || isPlaying) 210.dp else 140.dp,
+        targetValue = if (isServiceActive || isPlaying) 290.dp else 140.dp,
         label = "playback_bottom_padding"
     )
 
@@ -168,6 +172,56 @@ fun PlaybackScreen(
                         Spacer(modifier = Modifier.height(24.dp))
                     }
 
+                    val canNavigate = !isExporting && isServiceActive && currentIndex in sentences.indices
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = onPreviousChunkClick,
+                            enabled = canNavigate && currentIndex > 0
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SkipPrevious,
+                                contentDescription = androidx.compose.ui.res.stringResource(
+                                    id = com.brahmadeo.supertonic.tts.R.string.previous_chunk_content_description
+                                ),
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+
+                        FloatingActionButton(
+                            onClick = onPlayPauseClick,
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            shape = MaterialTheme.shapes.large,
+                            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp),
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = if (isPlaying) "Pause" else "Play",
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = onNextChunkClick,
+                            enabled = canNavigate
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SkipNext,
+                                contentDescription = androidx.compose.ui.res.stringResource(
+                                    id = com.brahmadeo.supertonic.tts.R.string.next_chunk_content_description
+                                ),
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -235,23 +289,7 @@ fun PlaybackScreen(
                             )
                         }
 
-                        // 3. Play / Pause Button (FAB)
-                        FloatingActionButton(
-                            onClick = onPlayPauseClick,
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                            shape = MaterialTheme.shapes.large,
-                            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp),
-                            modifier = Modifier.size(56.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (isPlaying) "Pause" else "Play",
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
-
-                        // 4. Chapters / Library Button
+                        // 3. Chapters / Library Button
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
@@ -273,7 +311,7 @@ fun PlaybackScreen(
                             )
                         }
 
-                        // 5. Save / Export Button
+                        // 4. Save / Export Button
                         val isSaveEnabled = !isExporting && (isServiceActive || !isPlaying)
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -296,6 +334,7 @@ fun PlaybackScreen(
                             )
                         }
                     }
+
                 }
             }
 

@@ -70,6 +70,10 @@
     <string name="stop_label">Stop</string>
     <string name="save_label">Save</string>
     <string name="chapters_label">Chapters</string>
+    <string name="previous_chunk_label">Previous</string>
+    <string name="next_chunk_label">Next</string>
+    <string name="previous_chunk_content_description">Previous audio chunk</string>
+    <string name="next_chunk_content_description">Next audio chunk</string>
 
     <!-- History Activity -->
     <string name="history_title">History</string>

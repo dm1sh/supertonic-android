@@ -217,6 +217,8 @@ class PlaybackActivity : ComponentActivity() {
                             finish()
                         },
                         onItemClick = { index -> playFromIndex(index) },
+                        onPreviousChunkClick = { skipToPreviousChunk() },
+                        onNextChunkClick = { skipToNextChunk() },
                         onPlayPauseClick = { handlePlayPause() },
                         onStopClick = { handleStop() },
                         onExportClick = { startExport() },
@@ -396,12 +398,28 @@ class PlaybackActivity : ComponentActivity() {
         sentencesState.value = sentences
     }
 
+    private fun skipToPreviousChunk() {
+        try {
+            playbackService?.skipToPreviousChunk()
+        } catch (e: RemoteException) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun skipToNextChunk() {
+        try {
+            playbackService?.skipToNextChunk()
+        } catch (e: RemoteException) {
+            e.printStackTrace()
+        }
+    }
+
     private fun handlePlayPause() {
         try {
             if (isPlayingState.value) {
-                playbackService?.stop() // Or pause if implemented
+                playbackService?.pause()
             } else if (isServiceActiveState.value) {
-                playFromIndex(currentIndexState.intValue)
+                playbackService?.play()
             } else {
                 if (currentIndexState.intValue >= 0) {
                     playFromIndex(currentIndexState.intValue)

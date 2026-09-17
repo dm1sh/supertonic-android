@@ -7,6 +7,8 @@ interface IPlaybackService {
     oneway void addToQueue(String text, String lang, String stylePath, float speed, int steps, int startIndex);
     oneway void play();
     oneway void pause();
+    oneway void skipToNextChunk();
+    oneway void skipToPreviousChunk();
     oneway void stop();
     boolean isServiceActive();
     oneway void setListener(IPlaybackListener listener);

@@ -63,6 +63,10 @@
 
     <!-- Playback Activity -->
     <string name="now_playing_title">Reproduciendo ahora</string>
+    <string name="previous_chunk_label">Anterior</string>
+    <string name="next_chunk_label">Siguiente</string>
+    <string name="previous_chunk_content_description">Fragmento de audio anterior</string>
+    <string name="next_chunk_content_description">Siguiente fragmento de audio</string>
     <string name="saving_audio">Guardando audio…</string>
     <string name="saved_to_fmt">Guardado en %1$s</string>
     <string name="export_failed">Error al exportar</string>

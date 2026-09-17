@@ -63,6 +63,10 @@
 
     <!-- Playback Activity -->
     <string name="now_playing_title">현재 재생 중</string>
+    <string name="previous_chunk_label">이전</string>
+    <string name="next_chunk_label">다음</string>
+    <string name="previous_chunk_content_description">이전 오디오 청크</string>
+    <string name="next_chunk_content_description">다음 오디오 청크</string>
     <string name="saving_audio">오디오 저장 중…</string>
     <string name="saved_to_fmt">%1$s에 저장됨</string>
     <string name="export_failed">내보내기 실패</string>

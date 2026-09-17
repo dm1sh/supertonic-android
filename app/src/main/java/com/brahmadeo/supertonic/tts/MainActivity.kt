@@ -555,10 +555,24 @@ class MainActivity : ComponentActivity() {
                             intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                             startActivity(intent)
                         },
+                        onMiniPlayerPreviousClick = {
+                            if (playbackService?.isServiceActive == true) {
+                                try {
+                                    playbackService?.skipToPreviousChunk()
+                                } catch (e: Exception) { e.printStackTrace() }
+                            }
+                        },
                         onMiniPlayerPlayPauseClick = {
                              if (playbackService?.isServiceActive == true) {
                                 try {
                                     if (viewModel.miniPlayerIsPlaying.value) playbackService?.pause() else playbackService?.play()
+                                } catch (e: Exception) { e.printStackTrace() }
+                            }
+                        },
+                        onMiniPlayerNextClick = {
+                            if (playbackService?.isServiceActive == true) {
+                                try {
+                                    playbackService?.skipToNextChunk()
                                 } catch (e: Exception) { e.printStackTrace() }
                             }
                         }

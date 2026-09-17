@@ -12,6 +12,8 @@ import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Save
@@ -92,7 +94,9 @@ fun MainScreen(
     miniPlayerTitle: String,
     miniPlayerIsPlaying: Boolean,
     onMiniPlayerClick: () -> Unit,
-    onMiniPlayerPlayPauseClick: () -> Unit
+    onMiniPlayerPreviousClick: () -> Unit,
+    onMiniPlayerPlayPauseClick: () -> Unit,
+    onMiniPlayerNextClick: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -435,10 +439,24 @@ fun MainScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
+                        IconButton(onClick = onMiniPlayerPreviousClick) {
+                            Icon(
+                                imageVector = Icons.Default.SkipPrevious,
+                                contentDescription = stringResource(AppR.string.previous_chunk_content_description),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                         IconButton(onClick = onMiniPlayerPlayPauseClick) {
                             Icon(
                                 imageVector = if (miniPlayerIsPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 contentDescription = if (miniPlayerIsPlaying) "Pause" else "Play",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        IconButton(onClick = onMiniPlayerNextClick) {
+                            Icon(
+                                imageVector = Icons.Default.SkipNext,
+                                contentDescription = stringResource(AppR.string.next_chunk_content_description),
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -612,7 +630,9 @@ fun MainScreenPreview() {
             miniPlayerTitle = "Now playing sample text",
             miniPlayerIsPlaying = true,
             onMiniPlayerClick = {},
-            onMiniPlayerPlayPauseClick = {}
+            onMiniPlayerPreviousClick = {},
+            onMiniPlayerPlayPauseClick = {},
+            onMiniPlayerNextClick = {}
         )
     }
 }
