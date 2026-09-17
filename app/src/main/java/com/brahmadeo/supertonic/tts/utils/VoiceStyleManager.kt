@@ -3,6 +3,7 @@ package com.brahmadeo.supertonic.tts.utils
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -24,6 +25,13 @@ object VoiceStyleManager {
         "F1.json", "F2.json", "F3.json", "F4.json", "F5.json"
     )
 
+    // Used when a producer omits dims. When dims are present, their declared
+    // dimensions are used after validating that they are positive and 3-D.
+    private val defaultDimensions = mapOf(
+        "style_ttl" to listOf(1, 50, 256),
+        "style_dp" to listOf(1, 8, 16)
+    )
+
     class InvalidVoiceStyleException(message: String, cause: Throwable? = null) :
         Exception(message, cause)
 
@@ -33,9 +41,10 @@ object VoiceStyleManager {
     )
 
     /**
-     * Copy, validate, and install a user-provided style in the active model's
-     * voice_styles directory. The source URI is consumed immediately, so no
-     * external storage permission or persisted URI grant is required.
+     * Copy, normalize, validate, and install a user-provided style in the
+     * active model's voice_styles directory. The source URI is consumed
+     * immediately, so no external storage permission or persisted URI grant is
+     * required.
      */
     fun importFromUri(context: Context, uri: Uri, modelVersion: String): ImportResult {
         require(modelVersion in setOf("v1", "v2", "v3")) {
@@ -62,7 +71,12 @@ object VoiceStyleManager {
             } catch (e: Exception) {
                 throw InvalidVoiceStyleException("Unable to read voice style JSON", e)
             }
-            validateJson(json)
+
+            // JSONObject is used here only for the small voice-style file. The
+            // importer rewrites flat tensor data into the nested shape expected
+            // by the native loader and supplies the omitted float32 type.
+            val normalizedJson = normalizeJson(json)
+            tempFile.bufferedWriter(Charsets.UTF_8).use { it.write(normalizedJson) }
 
             val requestedName = resolveDisplayName(context, uri)
             val fileName = safeFileName(requestedName)
@@ -77,9 +91,9 @@ object VoiceStyleManager {
                 throw IOException("Invalid voice style destination")
             }
 
-            // Copy the already-validated bytes to a staging file, then replace
-            // the destination. This avoids leaving a partial JSON file behind
-            // if the cache and files directories are different mounts.
+            // Copy the normalized bytes to a staging file, then replace the
+            // destination. This avoids leaving a partial JSON file behind if
+            // the cache and files directories are different mounts.
             val staging = File(voiceDir, INSTALL_FILE_NAME)
             staging.delete()
             try {
@@ -106,29 +120,103 @@ object VoiceStyleManager {
         }
     }
 
-    private fun validateJson(json: String) {
+    /**
+     * Normalize both accepted input forms into the three-dimensional arrays
+     * consumed by Rust: [batch][row][column]. Flat arrays are reshaped when
+     * they contain at least the number of values required by dims. Extra
+     * values are ignored because the declared tensor dimensions determine the
+     * native tensor size.
+     */
+    private fun normalizeJson(json: String): String {
         val root = try {
             JSONObject(json)
         } catch (e: Exception) {
             throw InvalidVoiceStyleException("Invalid JSON", e)
         }
 
-        validateComponent(root, "style_ttl")
-        validateComponent(root, "style_dp")
+        normalizeComponent(root, "style_ttl")
+        normalizeComponent(root, "style_dp")
+        return root.toString()
     }
 
-    private fun validateComponent(root: JSONObject, name: String) {
+    private fun normalizeComponent(root: JSONObject, name: String) {
         val component = root.optJSONObject(name)
             ?: throw InvalidVoiceStyleException("Missing $name component")
-        val dimensions = component.optJSONArray("dims")
+        val dimensions = readDimensions(component, name)
         val data = component.optJSONArray("data")
-        val type = component.optString("type")
-        if (dimensions == null || dimensions.length() != 3 ||
-            data == null || data.length() == 0 ||
-            data.optJSONArray(0) == null || type.isBlank()
-        ) {
-            throw InvalidVoiceStyleException("Invalid $name tensor component")
+            ?: throw InvalidVoiceStyleException("Missing $name data array")
+
+        val values = ArrayList<Any>()
+        flattenNumbers(data, values, name)
+        var requiredValues = 1L
+        for (dimension in dimensions) {
+            if (requiredValues > Int.MAX_VALUE.toLong() / dimension.toLong()) {
+                throw InvalidVoiceStyleException("$name dims are too large")
+            }
+            requiredValues *= dimension.toLong()
         }
+        val requiredCount = requiredValues.toInt()
+        if (values.size < requiredCount) {
+            throw InvalidVoiceStyleException(
+                "$name data has ${values.size} values, but ${requiredValues} are required"
+            )
+        }
+
+        component.put("dims", JSONArray().also { array ->
+            dimensions.forEach { array.put(it) }
+        })
+        component.put("data", reshape(values, dimensions))
+
+        val typeValue = component.opt("type")
+        if (typeValue == null || typeValue == JSONObject.NULL ||
+            typeValue !is String || typeValue.isBlank()
+        ) {
+            component.put("type", "float32")
+        }
+    }
+
+    private fun readDimensions(component: JSONObject, name: String): List<Int> {
+        val dimensions = component.optJSONArray("dims")
+        if (dimensions == null) return defaultDimensions.getValue(name)
+        if (dimensions.length() != 3) {
+            throw InvalidVoiceStyleException("$name dims must contain exactly three values")
+        }
+
+        val result = (0 until dimensions.length()).map { dimensions.optInt(it, 0) }
+        if (result.any { it <= 0 }) {
+            throw InvalidVoiceStyleException("$name dims must contain positive values")
+        }
+        return result
+    }
+
+    private fun flattenNumbers(value: Any?, output: MutableList<Any>, name: String) {
+        when (value) {
+            is JSONArray -> {
+                for (index in 0 until value.length()) {
+                    flattenNumbers(value.opt(index), output, name)
+                }
+            }
+            is Number -> output.add(value)
+            else -> throw InvalidVoiceStyleException("$name data must contain only numeric values")
+        }
+    }
+
+    private fun reshape(values: List<Any>, dimensions: List<Int>): JSONArray {
+        var offset = 0
+
+        fun build(level: Int): JSONArray {
+            val array = JSONArray()
+            repeat(dimensions[level]) {
+                if (level == dimensions.lastIndex) {
+                    array.put(values[offset++])
+                } else {
+                    array.put(build(level + 1))
+                }
+            }
+            return array
+        }
+
+        return build(0)
     }
 
     private fun resolveDisplayName(context: Context, uri: Uri): String? {
