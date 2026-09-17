@@ -38,6 +38,7 @@ import com.brahmadeo.supertonic.tts.utils.EbookParser
 import com.brahmadeo.supertonic.tts.utils.HistoryManager
 import com.brahmadeo.supertonic.tts.utils.LexiconManager
 import com.brahmadeo.supertonic.tts.utils.QueueManager
+import com.brahmadeo.supertonic.tts.utils.VoiceStyleManager
 import com.brahmadeo.supertonic.tts.viewmodel.MainViewModel
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import androidx.lifecycle.lifecycleScope
@@ -210,6 +211,12 @@ class MainActivity : ComponentActivity() {
                 viewModel.inputText.value = selectedText
             }
         }
+    }
+
+    private val voiceStylePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let { importVoiceStyle(it) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -445,6 +452,16 @@ class MainActivity : ComponentActivity() {
                                 val resetIntent = Intent(this, PlaybackService::class.java).apply { action = "RESET_ENGINE" }
                                 startService(resetIntent)
                             }
+                        },
+                        onImportVoiceStyleClick = {
+                            voiceStylePickerLauncher.launch(
+                                arrayOf(
+                                    "application/json",
+                                    "text/plain",
+                                    "application/octet-stream",
+                                    "*/*"
+                                )
+                            )
                         },
 
                         isMixingEnabled = viewModel.isMixingEnabled.value,
@@ -836,6 +853,52 @@ class MainActivity : ComponentActivity() {
                 if (!voiceResources.containsKey(file.name)) {
                     val friendlyName = file.name.removeSuffix(".json")
                     viewModel.voiceFiles[friendlyName] = file.name
+                }
+            }
+        }
+    }
+
+    private fun importVoiceStyle(uri: Uri) {
+        val modelVersion = currentModelVersion
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val result = VoiceStyleManager.importFromUri(this@MainActivity, uri, modelVersion)
+                withContext(Dispatchers.Main) {
+                    // The picker imports into the model that was active when it
+                    // opened. Do not change a newer model selection if the user
+                    // switched models while the file was being copied.
+                    if (currentModelVersion == modelVersion) {
+                        setupVoicesMap(modelVersion, viewModel.currentLang.value)
+                        viewModel.selectedVoiceFile.value = result.fileName
+                        saveStringPref("selected_voice", result.fileName)
+                        val resetIntent = Intent(this@MainActivity, PlaybackService::class.java).apply {
+                            action = "RESET_ENGINE"
+                        }
+                        startService(resetIntent)
+                    }
+                    Toast.makeText(
+                        this@MainActivity,
+                        getString(R.string.import_voice_style_success, result.displayName),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            } catch (e: VoiceStyleManager.InvalidVoiceStyleException) {
+                Log.e("MainActivity", "Invalid voice style", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        getString(R.string.import_voice_style_invalid),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Failed to import voice style", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        getString(R.string.import_voice_style_error),
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         }
